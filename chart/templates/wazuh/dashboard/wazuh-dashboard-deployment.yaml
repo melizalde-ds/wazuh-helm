@@ -33,8 +33,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: wazuh-dashboard
-          image: wazuh/wazuh-dashboard:{{ .Values.wazuh.tag }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.dashboard.image.repository }}:{{ .Values.wazuh.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -120,10 +120,8 @@ spec:
               protocol: TCP
           {{- if .Values.dashboard.startupProbe.enabled }}
           startupProbe:
-            httpGet:
-              path: /api/status
+            tcpSocket:
               port: 5601
-              scheme: HTTPS
             initialDelaySeconds: {{ .Values.dashboard.startupProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.dashboard.startupProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.dashboard.startupProbe.timeoutSeconds }}
@@ -131,10 +129,8 @@ spec:
           {{- end }}
           {{- if .Values.dashboard.livenessProbe.enabled }}
           livenessProbe:
-            httpGet:
-              path: /api/status
+            tcpSocket:
               port: 5601
-              scheme: HTTPS
             initialDelaySeconds: {{ .Values.dashboard.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.dashboard.livenessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.dashboard.livenessProbe.timeoutSeconds }}
@@ -142,10 +138,8 @@ spec:
           {{- end }}
           {{- if .Values.dashboard.readinessProbe.enabled }}
           readinessProbe:
-            httpGet:
-              path: /api/status
+            tcpSocket:
               port: 5601
-              scheme: HTTPS
             initialDelaySeconds: {{ .Values.dashboard.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.dashboard.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.dashboard.readinessProbe.timeoutSeconds }}
@@ -165,10 +159,16 @@ spec:
           secret:
             secretName: {{ .Release.Name }}-rootca-certificate
             defaultMode: 0444
+        {{- if .Values.dashboard.persistence.enabled }}
         - name: wazuh-dashboard-data
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-dashboard-data
+        {{- else }}
+        - name: wazuh-dashboard-data
+          emptyDir: {}
+        {{- end }}
 ---
+{{- if .Values.dashboard.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -179,10 +179,15 @@ metadata:
     component: dashboard
 spec:
   accessModes:
-    - ReadWriteOnce
-  {{- if .Values.dashboard.storage.storageClass }}
-  storageClassName: {{ .Values.dashboard.storage.storageClass | quote }}
+    - {{ .Values.dashboard.persistence.accessMode }}
+  {{- if .Values.dashboard.persistence.storageClass }}
+  {{- if eq .Values.dashboard.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
   {{- end }}
   resources:
     requests:
-      storage: {{ .Values.dashboard.storage.size }}
+      storage: {{ .Values.dashboard.persistence.size }}
+{{- end }}
