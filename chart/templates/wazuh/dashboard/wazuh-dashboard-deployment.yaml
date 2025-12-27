@@ -33,7 +33,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: wazuh-dashboard
-          image: wazuh/wazuh-dashboard:{{ .Values.wazuh.tag }}
+          image: {{ .Values.dashboard.image.repository }}:{{ .Values.wazuh.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
