@@ -13,7 +13,7 @@ spec:
     matchLabels:
       app: {{ .Release.Name }}-indexer
       node-type: index
-  serviceName: wazuh-cluster
+  serviceName: {{ .Release.Name }}-cluster
   podManagementPolicy: Parallel
   {{- with .Values.indexer.strategy }}
   updateStrategy:
