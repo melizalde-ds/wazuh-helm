@@ -66,7 +66,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: wazuh-manager
+  name: {{ .Release.Name }}-manager
 spec:
   secretName: {{ .Release.Name }}-manager
   duration: 2160h
