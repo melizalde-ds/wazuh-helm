@@ -257,7 +257,7 @@ spec:
             defaultMode: 0440
         - name: wazuh-root
           secret:
-            secretName: {{ .Release.Name }}-rootca-certificate
+            secretName: {{ include "wazuh.rootCASecretName" . }}
             defaultMode: 0444
         - name: wazuh-auth
           secret:

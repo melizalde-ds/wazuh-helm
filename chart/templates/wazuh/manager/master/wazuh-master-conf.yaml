@@ -297,7 +297,7 @@ data:
       </auth>
 
       <cluster>
-        <name>wazuh</name>
+        <name>{{ .Values.manager.clusterName | default .Release.Name }}</name>
         <node_name>NODE_NAME</node_name>  <!-- Wazuh entrypoint replaces this -->
         <node_type>master</node_type>
         <key>{{ .Values.secrets.clusterKey }}</key>

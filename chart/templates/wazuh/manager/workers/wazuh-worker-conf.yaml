@@ -147,7 +147,7 @@ data:
       </auth>
 
       <cluster>
-        <name>wazuh</name>
+        <name>{{ .Values.manager.clusterName | default .Release.Name }}</name>
         <node_type>worker</node_type>
         <key>{{ .Values.secrets.clusterKey }}</key>
         <port>1516</port>

@@ -32,7 +32,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: wazuh-dashboard
+        - name: {{ .Release.Name }}-dashboard
           image: {{ .Values.dashboard.image.repository }}:{{ .Values.wazuh.tag }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           securityContext:
@@ -157,7 +157,7 @@ spec:
             defaultMode: 0440
         - name: wazuh-root
           secret:
-            secretName: {{ .Release.Name }}-rootca-certificate
+            secretName: {{ include "wazuh.rootCASecretName" . }}
             defaultMode: 0444
         {{- if .Values.dashboard.persistence.enabled }}
         - name: wazuh-dashboard-data
