@@ -230,7 +230,7 @@ spec:
             name: {{ .Release.Name }}-indexer-conf
         - name: certs-root
           secret:
-            secretName: {{ .Release.Name }}-rootca-certificate
+            secretName: {{ include "wazuh.rootCASecretName" . }}
         - name: certs-indexer
           secret:
             secretName: {{ .Release.Name }}-indexer

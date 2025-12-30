@@ -7,8 +7,7 @@ data:
   opensearch.yml: |-
     network.host: "0.0.0.0"
     node.name: "${NODE_NAME}"
-    cluster.name: "wazuh-cluster"
-
+    cluster.name: "{{ .Values.indexer.clusterName | default (printf "%s-cluster" .Release.Name) }}"
 
     cluster.initial_cluster_manager_nodes: 
       - "{{ .Release.Name }}-indexer-0"
@@ -20,7 +19,7 @@ data:
       {{- end }}
     
     discovery.seed_hosts:
-      - "{{ .Release.Name }}-indexer-0.wazuh-cluster.{{ .Release.Namespace }}.svc.cluster.local"
+      - "{{ .Release.Name }}-indexer-0.{{ .Release.Name }}-cluster.{{ .Release.Namespace }}.svc.cluster.local"
       {{- if gt (.Values.indexer.replicas | int) 1 }}
       - "{{ .Release.Name }}-indexer-1.wazuh-cluster.{{ .Release.Namespace }}.svc.cluster.local"
       {{- end }}

@@ -209,7 +209,7 @@ spec:
             secretName: {{ .Release.Name }}-manager
         - name: wazuh-root
           secret:
-            secretName: {{ .Release.Name }}-rootca-certificate
+            secretName: {{ include "wazuh.rootCASecretName" . }}
         - name: wazuh-auth
           secret:
             secretName: {{ .Release.Name }}-auth

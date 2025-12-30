@@ -1,0 +1,27 @@
+# chart/templates/NOTES.txt
+{{- if .Values.dashboard.persistence.enabled }}
+Wazuh has been installed!
+
+1. Get the dashboard URL:
+{{- if eq .Values.dashboard.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ .Release.Name }}-dashboard)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "https://$NODE_IP:$NODE_PORT"
+{{- else if eq .Values.dashboard.service.type "LoadBalancer" }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ .Release.Name }}-dashboard -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "https://$SERVICE_IP:{{ .Values.dashboard.service.port }}"
+{{- else if eq .Values.dashboard.service.type "ClusterIP"}}
+  Use port-forwarding to access the dashboard:
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ .Release.Name }}-dashboard 5601:{{ .Values.dashboard.service.port }}
+  Then access the dashboard at: https://localhost:5601
+{{- end }}
+
+2. Dashboard credentials:
+   The dashboard username and password are stored in a Kubernetes Secret.
+   To inspect them (replace placeholders as appropriate), run:
+     kubectl get secret -n {{ .Release.Namespace }} <dashboard-secret-name> -o yaml
+
+3. Connect agents to:
+   {{ .Release.Name }}-workers.{{ .Release.Namespace }}.svc.cluster.local:1514
+
+{{- end }}

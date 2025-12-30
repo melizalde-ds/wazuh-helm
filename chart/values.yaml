@@ -1,5 +1,3 @@
-cluster: int
-
 wazuh:
   tag: 4.14.1
 
@@ -14,6 +12,20 @@ global:
 
   labels: {}
   annotations: {}
+
+certificates:
+  selfSigned: true
+
+  # Certificate lifecycle settings
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days before expiration
+
+  issuerRef:
+    name: "" # Name of your existing ClusterIssuer or Issuer
+    kind: Issuer
+
+  rootCA:
+    secretName: ""
 
 secrets:
   authdPassword: "AuthPassword!"
@@ -79,6 +91,7 @@ dashboard:
     annotations: {}
 
 indexer:
+  clusterName: ""
   replicas: 1
 
   image:
@@ -131,6 +144,7 @@ indexer:
   javaOpts: "-Xms2g -Xmx2g"
 
 manager:
+  clusterName: ""
   master:
     replicas: 1
 

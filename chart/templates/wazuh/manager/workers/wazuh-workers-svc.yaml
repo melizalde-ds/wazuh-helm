@@ -23,6 +23,10 @@ spec:
       port: {{ .Values.manager.workers.service.ports.agent }}
       targetPort: agents-events
       protocol: TCP
+    - name: agents-udp
+      port: {{ .Values.manager.workers.service.ports.agent }}
+      targetPort: agents-udp
+      protocol: UDP
     - name: cluster
       port: {{ .Values.manager.workers.service.ports.cluster }}
       targetPort: cluster
