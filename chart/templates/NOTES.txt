@@ -16,9 +16,10 @@ Wazuh has been installed!
   Then access the dashboard at: https://localhost:5601
 {{- end }}
 
-2. Default credentials (⚠️  CHANGE THESE IN PRODUCTION!):
-   Username: {{ .Values.secrets.dashboardUsername }}
-   Password: {{ .Values.secrets.dashboardPassword }}
+2. Dashboard credentials:
+   The dashboard username and password are stored in a Kubernetes Secret.
+   To inspect them (replace placeholders as appropriate), run:
+     kubectl get secret -n {{ .Release.Namespace }} <dashboard-secret-name> -o yaml
 
 3. Connect agents to:
    {{ .Release.Name }}-workers.{{ .Release.Namespace }}.svc.cluster.local:1514
