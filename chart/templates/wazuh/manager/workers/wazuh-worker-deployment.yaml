@@ -209,6 +209,9 @@ spec:
             - containerPort: {{ .Values.manager.workers.service.ports.agent }}
               name: agents-events
               protocol: TCP
+            - containerPort: {{ .Values.manager.workers.service.ports.agent }}
+              name: agents-udp
+              protocol: UDP
             - containerPort: {{ .Values.manager.workers.service.ports.cluster }}
               name: cluster
               protocol: TCP
