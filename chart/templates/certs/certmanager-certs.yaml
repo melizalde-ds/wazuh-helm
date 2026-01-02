@@ -46,13 +46,24 @@ spec:
   secretName: {{ .Release.Name }}-admin
   duration: {{ .Values.certificates.duration }}
   renewBefore: {{ .Values.certificates.renewBefore }}
-  commonName: {{ .Release.Name }}-admin.{{ .Release.Namespace }}.svc
-  dnsNames:
-  - {{ .Release.Name }}-indexer
-  - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc
-  - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc.cluster.local
-  - {{ .Release.Name }}-admin.{{ .Release.Namespace }}.svc
-  - {{ .Release.Name }}-admin.{{ .Release.Namespace }}.svc.cluster.local
+  commonName: {{ .Release.Name }}-admin
+  subject:
+    organizations:
+      {{- range .Values.certificates.subject.organizations }}
+      - {{ . | quote }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.certificates.subject.organizationalUnits }}
+      - {{ . | quote }}
+      {{- end }}
+    localities:
+      {{- range .Values.certificates.subject.localities }}
+      - {{ . | quote }}
+      {{- end }}
+    countries:
+      {{- range .Values.certificates.subject.countries }}
+      - {{ . | quote }}
+      {{- end }}
   issuerRef:
     {{- include "wazuh.issuerRef" . | nindent 4 }}
 ---
@@ -67,10 +78,31 @@ spec:
   duration: {{ .Values.certificates.duration }}
   renewBefore: {{ .Values.certificates.renewBefore }}
   commonName: {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc
+  subject:
+    organizations:
+      {{- range .Values.certificates.subject.organizations }}
+      - {{ . | quote }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.certificates.subject.organizationalUnits }}
+      - {{ . | quote }}
+      {{- end }}
+    localities:
+      {{- range .Values.certificates.subject.localities }}
+      - {{ . | quote }}
+      {{- end }}
+    countries:
+      {{- range .Values.certificates.subject.countries }}
+      - {{ . | quote }}
+      {{- end }}
   dnsNames:
   - {{ .Release.Name }}-indexer
   - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc
   - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc.cluster.local
+  - {{ .Release.Name }}-indexer-cluster.{{ .Release.Namespace }}.svc.cluster.local
+  {{- range $i := until (int .Values.indexer.replicas) }}
+  - {{ $.Release.Name }}-indexer-{{ $i }}.{{ $.Release.Name }}-indexer-cluster.{{ $.Release.Namespace }}.svc.cluster.local
+  {{- end }}
   issuerRef:
     {{- include "wazuh.issuerRef" . | nindent 4 }}
 ---
