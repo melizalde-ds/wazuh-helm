@@ -13,7 +13,7 @@ spec:
     matchLabels:
       app: {{ .Release.Name }}-manager
       node-type: master
-  serviceName: {{ .Release.Name }}-cluster
+  serviceName: {{ .Release.Name }}-manager-cluster
   podManagementPolicy: Parallel
   {{- with .Values.manager.master.strategy }}
   updateStrategy:

@@ -27,6 +27,16 @@ certificates:
   rootCA:
     secretName: ""
 
+  subject:
+    organizations:
+      - "Wazuh"
+    organizationalUnits:
+      - "Wazuh"
+    localities:
+      - "California"
+    countries:
+      - "US"
+
 secrets:
   authdPassword: "AuthPassword!"
   apiUsername: "wazuh-api"
@@ -131,10 +141,23 @@ indexer:
     rollingUpdate:
       maxUnavailable: 0
 
+  antiAffinity:
+    enabled: true
+    type: soft # 'soft' = preferred, 'hard' = required
+    topologyKey: "kubernetes.io/hostname"
+
+  securityInit:
+    enabled: true
+    maxRetries: 60
+    retryInterval: 10
+    backoffLimit: 6
+    ttlSecondsAfterFinished: 3600
+
   persistence:
     enabled: true
     size: 50Gi
     accessMode: ReadWriteOnce
+    storageClass: ""
 
   service:
     type: ClusterIP
