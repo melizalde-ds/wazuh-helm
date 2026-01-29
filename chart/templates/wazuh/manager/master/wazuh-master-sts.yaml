@@ -1,0 +1,277 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-manager-master
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.global.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.manager.master.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-manager
+      node-type: master
+  serviceName: {{ .Release.Name }}-manager-cluster
+  podManagementPolicy: Parallel
+  {{- with .Values.manager.master.strategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-manager
+        node-type: master
+        {{- with .Values.global.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.global.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      name: {{ .Release.Name }}-manager-master
+    spec:
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: init-volumes
+          image: {{ .Values.manager.master.image.repository }}:{{ .Values.wazuh.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              chown -R wazuh:wazuh /var/ossec/ || true
+              mkdir -p /var/ossec/etc/shared/
+              [ ! -f /var/ossec/etc/shared/ar.conf ] && echo "#clean" > /var/ossec/etc/shared/ar.conf || true
+          volumeMounts:
+            - name: wazuh-manager-master
+              mountPath: /var/ossec/
+      containers:
+        - name: wazuh-manager
+          image: {{ .Values.manager.master.image.repository }}:{{ .Values.wazuh.tag }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: WAZUH_CLUSTER_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WAZUH_CLUSTER_NODE_TYPE
+              value: "master"
+            - name: WAZUH_CLUSTER_KEY
+              value: {{ .Values.secrets.clusterKey | quote }}
+            - name: WAZUH_CLUSTER_NODES
+              value: "{{ .Release.Name }}-manager-master-0.wazuh-cluster.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: INDEXER_URL
+              value: https://{{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc:9200
+            - name: INDEXER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-indexer-creds
+                  key: username
+            - name: INDEXER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-indexer-creds
+                  key: password
+            - name: FILEBEAT_SSL_VERIFICATION_MODE
+              value: full
+            - name: SSL_CERTIFICATE_AUTHORITIES
+              value: /etc/ssl/root-ca.pem
+            - name: SSL_CERTIFICATE
+              value: /etc/ssl/filebeat.pem
+            - name: SSL_KEY
+              value: /etc/ssl/filebeat.key
+            - name: API_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-manager-secret
+                  key: api-username
+            - name: API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-manager-secret
+                  key: api-password
+          resources:
+            {{- toYaml .Values.manager.master.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /wazuh-config-mount/etc/ossec.conf
+              subPath: ossec.conf
+              readOnly: true
+            - name: wazuh-manager-master
+              subPath: api/configuration
+              mountPath: /var/ossec/api/configuration
+            - name: wazuh-manager-master
+              subPath: etc
+              mountPath: /var/ossec/etc
+            - name: wazuh-manager-master
+              subPath: logs
+              mountPath: /var/ossec/logs
+            - name: wazuh-manager-master
+              subPath: queue
+              mountPath: /var/ossec/queue
+            - name: wazuh-manager-master
+              subPath: multigroups
+              mountPath: /var/ossec/multigroups
+            - name: wazuh-manager-master
+              subPath: integrations
+              mountPath: /var/ossec/integrations
+            - name: wazuh-manager-master
+              subPath: active-response/bin
+              mountPath: /var/ossec/active-response/bin
+            - name: wazuh-manager-master
+              subPath: agentless
+              mountPath: /var/ossec/agentless
+            - name: wazuh-manager-master
+              subPath: wodles
+              mountPath: /var/ossec/wodles
+            - name: wazuh-filebeat
+              subPath: etc
+              mountPath: /etc/filebeat
+            - name: wazuh-filebeat
+              subPath: var
+              mountPath: /var/lib/filebeat
+            - name: wazuh-manager
+              mountPath: /etc/ssl/filebeat.key
+              subPath: tls.key
+              readOnly: true
+            - name: wazuh-manager
+              mountPath: /etc/ssl/filebeat.pem
+              subPath: tls.crt
+              readOnly: true
+            - name: wazuh-root
+              mountPath: /etc/ssl/root-ca.pem
+              subPath: ca.crt
+              readOnly: true
+            - name: wazuh-auth
+              mountPath: /var/ossec/etc/authd.pass
+              subPath: authd.pass
+              readOnly: true
+          ports:
+            - containerPort: {{ .Values.manager.master.service.ports.registration }}
+              name: registration
+            - containerPort: {{ .Values.manager.master.service.ports.cluster }}
+              name: cluster
+            - containerPort: {{ .Values.manager.master.service.ports.api }}
+              name: api
+          {{- if .Values.manager.master.startupProbe.enabled }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.manager.master.service.ports.api }}
+            initialDelaySeconds: {{ .Values.manager.master.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.manager.master.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.manager.master.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.manager.master.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.manager.master.livenessProbe.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.manager.master.service.ports.api }}
+            initialDelaySeconds: {{ .Values.manager.master.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.manager.master.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.manager.master.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.manager.master.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.manager.master.readinessProbe.enabled }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.manager.master.service.ports.api }}
+            initialDelaySeconds: {{ .Values.manager.master.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.manager.master.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.manager.master.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.manager.master.readinessProbe.failureThreshold }}
+          {{- end }}
+      volumes:
+        - name: wazuh-manager-master
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-manager-master
+        - name: wazuh-filebeat
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-manager-filebeat
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-manager-master-conf
+        - name: wazuh-manager
+          secret:
+            secretName: {{ .Release.Name }}-manager
+        - name: wazuh-root
+          secret:
+            secretName: {{ include "wazuh.rootCASecretName" . }}
+        - name: wazuh-auth
+          secret:
+            secretName: {{ .Release.Name }}-auth
+---
+{{- if .Values.manager.master.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-manager-master
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-manager-master
+    {{- with .Values.global.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.manager.master.persistence.accessMode }}
+  {{- if .Values.manager.master.persistence.storageClass }}
+  {{- if eq .Values.manager.master.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  {{- if eq .Values.global.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.manager.master.persistence.size }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-manager-filebeat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-manager-master
+    {{- with .Values.global.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.manager.master.persistence.accessMode }}
+  {{- if .Values.manager.master.persistence.storageClass }}
+  {{- if eq .Values.manager.master.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  {{- if eq .Values.global.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.manager.master.persistence.filebeatSize }}
+{{- end }}

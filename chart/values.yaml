@@ -1,0 +1,277 @@
+wazuh:
+  tag: 4.14.1
+
+global:
+  imagePullPolicy: IfNotPresent
+
+  storageClass: ""
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  labels: {}
+  annotations: {}
+
+certificates:
+  selfSigned: true
+
+  # Certificate lifecycle settings
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days before expiration
+
+  issuerRef:
+    name: "" # Name of your existing ClusterIssuer or Issuer
+    kind: Issuer
+
+  rootCA:
+    secretName: ""
+
+  subject:
+    organizations:
+      - "Wazuh"
+    organizationalUnits:
+      - "Wazuh"
+    localities:
+      - "California"
+    countries:
+      - "US"
+
+secrets:
+  authdPassword: "AuthPassword!"
+  apiUsername: "wazuh-api"
+  apiPassword: "ApiPass123!"
+  indexerUsername: "admin"
+  indexerPassword: "admin"
+  indexerPasswordHash: "$2y$12$muvpS3R3TJeHkC1M0PqPBO27ZKLyFNWC96odRCBaOBjcXUjpfX/VW"
+  dashboardUsername: "kibanaserver"
+  dashboardPassword: "kibanaserver"
+  dashboardPasswordHash: "$2y$12$NIEc0NTnJqN34GVGmbCvy.Lw1zKv8r/RV7sbw6S01XusJ84Odt3lW"
+  clusterKey: "c98b6ha9b6169zc5f67rae55ae4z5647"
+
+dashboard:
+  replicas: 1
+
+  image:
+    repository: wazuh/wazuh-dashboard
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  persistence:
+    enabled: true
+    size: 5Gi
+    accessMode: ReadWriteOnce
+
+  service:
+    type: ClusterIP
+    port: 5601
+    annotations: {}
+
+indexer:
+  clusterName: ""
+  replicas: 1
+
+  image:
+    repository: wazuh/wazuh-indexer
+
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+
+  antiAffinity:
+    enabled: true
+    type: soft # 'soft' = preferred, 'hard' = required
+    topologyKey: "kubernetes.io/hostname"
+
+  securityInit:
+    enabled: true
+    maxRetries: 60
+    retryInterval: 10
+    backoffLimit: 6
+    ttlSecondsAfterFinished: 3600
+
+  persistence:
+    enabled: true
+    size: 50Gi
+    accessMode: ReadWriteOnce
+    storageClass: ""
+
+  service:
+    type: ClusterIP
+    port: 9200
+    annotations: {}
+
+  javaOpts: "-Xms2g -Xmx2g"
+
+manager:
+  clusterName: ""
+  master:
+    replicas: 1
+
+    image:
+      repository: wazuh/wazuh-manager
+
+    resources:
+      requests:
+        cpu: 300m
+        memory: 1536Mi
+      limits:
+        cpu: 1000m
+        memory: 3Gi
+
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 20
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 24
+
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 0
+
+    persistence:
+      enabled: true
+      size: 12Gi
+      filebeatSize: 5Gi
+      accessMode: ReadWriteOnce
+
+    service:
+      type: ClusterIP
+      ports:
+        registration: 1515
+        cluster: 1516
+        api: 55000
+      annotations: {}
+
+  workers:
+    replicas: 1
+
+    image:
+      repository: wazuh/wazuh-manager
+
+    resources:
+      requests:
+        cpu: 400m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 20
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 24
+
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 1
+
+    persistence:
+      enabled: true
+      size: 12Gi
+      filebeatSize: 2Gi
+      accessMode: ReadWriteOnce
+
+    service:
+      type: ClusterIP
+      ports:
+        agent: 1514
+        cluster: 1516
+      annotations: {}

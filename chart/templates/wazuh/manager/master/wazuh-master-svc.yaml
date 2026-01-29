@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-manager
+{{- with .Values.global.labels }}
+{{ toYaml . | nindent 4 }}
+{{- end }}
+  annotations:
+{{- with .Values.global.annotations }}
+{{ toYaml . | nindent 4 }}
+{{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-manager
+    node-type: master
+  ports:
+    - name: registration
+      port: 1515
+      targetPort: 1515
+    - name: cluster
+      port: 1516
+      targetPort: 1516
+    - name: api
+      port: 55000
+      targetPort: 55000

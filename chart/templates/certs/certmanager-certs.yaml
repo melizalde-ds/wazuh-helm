@@ -1,0 +1,158 @@
+{{- if .Values.certificates.selfSigned }}
+---
+# Self-signed issuer for creating the root CA
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-selfsigned
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+# Root CA certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-rootca-certificate
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-rootca-certificate
+  commonName: "{{ .Release.Name }}-rootca"
+  isCA: true
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  issuerRef:
+    name: {{ .Release.Name }}-selfsigned
+    kind: Issuer
+---
+# CA issuer that uses the root CA
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  ca:
+    secretName: {{ .Release.Name }}-rootca-certificate
+{{- end }}
+---
+# Admin certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-admin
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  commonName: {{ .Release.Name }}-admin
+  subject:
+    organizations:
+      {{- range .Values.certificates.subject.organizations }}
+      - {{ . | quote }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.certificates.subject.organizationalUnits }}
+      - {{ . | quote }}
+      {{- end }}
+    localities:
+      {{- range .Values.certificates.subject.localities }}
+      - {{ . | quote }}
+      {{- end }}
+    countries:
+      {{- range .Values.certificates.subject.countries }}
+      - {{ . | quote }}
+      {{- end }}
+  issuerRef:
+    {{- include "wazuh.issuerRef" . | nindent 4 }}
+---
+# Indexer certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-indexer
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-indexer
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  commonName: {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc
+  subject:
+    organizations:
+      {{- range .Values.certificates.subject.organizations }}
+      - {{ . | quote }}
+      {{- end }}
+    organizationalUnits:
+      {{- range .Values.certificates.subject.organizationalUnits }}
+      - {{ . | quote }}
+      {{- end }}
+    localities:
+      {{- range .Values.certificates.subject.localities }}
+      - {{ . | quote }}
+      {{- end }}
+    countries:
+      {{- range .Values.certificates.subject.countries }}
+      - {{ . | quote }}
+      {{- end }}
+  dnsNames:
+  - {{ .Release.Name }}-indexer
+  - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc
+  - {{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc.cluster.local
+  - {{ .Release.Name }}-indexer-cluster.{{ .Release.Namespace }}.svc.cluster.local
+  {{- range $i := until (int .Values.indexer.replicas) }}
+  - {{ $.Release.Name }}-indexer-{{ $i }}.{{ $.Release.Name }}-indexer-cluster.{{ $.Release.Namespace }}.svc.cluster.local
+  {{- end }}
+  issuerRef:
+    {{- include "wazuh.issuerRef" . | nindent 4 }}
+---
+# Manager certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-manager
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  commonName: {{ .Release.Name }}-manager.{{ .Release.Namespace }}.svc
+  dnsNames:
+  - {{ .Release.Name }}-manager.{{ .Release.Namespace }}.svc
+  - {{ .Release.Name }}-manager.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- include "wazuh.issuerRef" . | nindent 4 }}
+---
+# Worker certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-worker
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-worker
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  commonName: {{ .Release.Name }}-worker.{{ .Release.Namespace }}.svc
+  dnsNames:
+  - {{ .Release.Name }}-worker.{{ .Release.Namespace }}.svc
+  - {{ .Release.Name }}-worker.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- include "wazuh.issuerRef" . | nindent 4 }}
+---
+# Dashboard certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Release.Name }}-dashboard
+  duration: {{ .Values.certificates.duration }}
+  renewBefore: {{ .Values.certificates.renewBefore }}
+  commonName: {{ .Release.Name }}-dashboard.{{ .Release.Namespace }}.svc
+  dnsNames:
+  - {{ .Release.Name }}-dashboard.{{ .Release.Namespace }}.svc
+  - {{ .Release.Name }}-dashboard.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- include "wazuh.issuerRef" . | nindent 4 }}

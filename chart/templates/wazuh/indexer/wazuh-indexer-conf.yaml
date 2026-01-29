@@ -1,0 +1,303 @@
+{{- define "wazuh.indexer.config" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-indexer-conf
+  namespace: {{ .Release.Namespace }}
+data:
+  opensearch.yml: |-
+    # ===================
+    # Cluster Settings
+    # ===================
+    cluster.name: "{{ .Values.indexer.clusterName | default (printf "%s-cluster" .Release.Name) }}"
+    node.name: "${NODE_NAME}"
+    
+    # Initial cluster manager nodes (for bootstrapping)
+    cluster.initial_cluster_manager_nodes:
+      {{- $releaseName := .Release.Name }}
+      {{- $replicas := .Values.indexer.replicas | int }}
+      {{- range $i := until $replicas }}
+      - "{{ $releaseName }}-indexer-{{ $i }}"
+      {{- end }}
+    
+    # Discovery settings - use headless service DNS
+    discovery.seed_hosts:
+    - "{{ .Release.Name }}-indexer-cluster.{{ .Release.Namespace }}.svc.cluster.local:9300"
+    
+    # ===================
+    # Network Settings
+    # ===================
+    network.host: "0.0.0.0"
+    http.port: 9200
+    transport.port: 9300
+    
+    # ===================
+    # Path Settings
+    # ===================
+    path.data: /var/lib/wazuh-indexer
+    path.logs: /var/log/wazuh-indexer
+    
+    # ===================
+    # Compatibility
+    # ===================
+    compatibility.override_main_response_version: true
+    
+    # ===================
+    # Security Plugin - TLS/SSL
+    # ===================
+    # HTTP layer (REST API)
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/wazuh.indexer.pem
+    plugins.security.ssl.http.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/wazuh.indexer.key
+    plugins.security.ssl.http.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
+    
+    # Transport layer (inter-node communication)
+    plugins.security.ssl.transport.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/wazuh.indexer.pem
+    plugins.security.ssl.transport.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/wazuh.indexer.key
+    plugins.security.ssl.transport.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+    plugins.security.ssl.transport.resolve_hostname: false
+    
+    # Certificate hot reload
+    plugins.security.ssl.certificates_hot_reload.enabled: true
+    
+    # ===================
+    # Security Plugin - Authentication
+    # ===================
+    # Node distinguished names (for shared cert, use single DN)
+    plugins.security.nodes_dn:
+      - "CN={{ .Release.Name }}-indexer.{{ .Release.Namespace }}.svc,OU={{ index .Values.certificates.subject.organizationalUnits 0 }},O={{ index .Values.certificates.subject.organizations 0 }},L={{ index .Values.certificates.subject.localities 0 }},C={{ index .Values.certificates.subject.countries 0 }}"
+    # Admin certificate DN
+    plugins.security.authcz.admin_dn:
+      - "CN={{ .Release.Name }}-admin,OU={{ index .Values.certificates.subject.organizationalUnits 0 }},O={{ index .Values.certificates.subject.organizations 0 }},L={{ index .Values.certificates.subject.localities 0 }},C={{ index .Values.certificates.subject.countries 0 }}"
+    # ===================
+    # Security Plugin - Initialization
+    # ===================
+    plugins.security.allow_default_init_securityindex: true
+    plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+    
+    # System indices protection
+    plugins.security.system_indices.enabled: true
+    plugins.security.system_indices.indices:
+      - ".opendistro-alerting-config"
+      - ".opendistro-alerting-alert*"
+      - ".opendistro-anomaly-results*"
+      - ".opendistro-anomaly-detector*"
+      - ".opendistro-anomaly-checkpoints"
+      - ".opendistro-anomaly-detection-state"
+      - ".opendistro-reports-*"
+      - ".opendistro-notifications-*"
+      - ".opendistro-notebooks"
+      - ".opensearch-observability"
+      - ".opendistro-asynchronous-search-response*"
+      - ".replication-metadata-store"
+    
+    # Snapshot/restore privileges
+    plugins.security.check_snapshot_restore_write_privileges: true
+    plugins.security.enable_snapshot_restore_privilege: true
+    
+    # ===================
+    # Cluster Allocation
+    # ===================
+    cluster.routing.allocation.disk.threshold_enabled: false
+
+  internal_users.yml: |-
+    ---
+    _meta:
+      type: "internalusers"
+      config_version: 2
+
+    # Admin user
+    {{ .Values.secrets.indexerUsername }}:
+      hash: "{{ .Values.secrets.indexerPasswordHash }}"
+      reserved: true
+      backend_roles:
+        - "admin"
+      description: "Admin user for Wazuh indexer"
+
+    # Dashboard user
+    {{ .Values.secrets.dashboardUsername }}:
+      hash: "{{ .Values.secrets.dashboardPasswordHash }}"
+      reserved: false
+      backend_roles:
+        - "wazuh_dashboard"
+      description: "Dashboard user for Wazuh"
+
+  roles.yml: |-
+    ---
+    _meta:
+      type: "roles"
+      config_version: 2
+    
+    # Wazuh UI admin role
+    wazuh_ui_admin:
+      reserved: false
+      cluster_permissions:
+        - "cluster_monitor"
+        - "cluster_composite_ops"
+        - "cluster:admin/opendistro/ism/*"
+        - "cluster:admin/opendistro/rollup/*"
+      index_permissions:
+        - index_patterns:
+            - "wazuh-*"
+          allowed_actions:
+            - "read"
+            - "delete"
+            - "manage"
+            - "index"
+            - "indices:admin/aliases/get"
+            - "indices:admin/aliases"
+        - index_patterns:
+            - ".kibana*"
+            - ".opensearch_dashboards*"
+          allowed_actions:
+            - "read"
+            - "delete"
+            - "manage"
+            - "index"
+      tenant_permissions:
+        - tenant_patterns:
+            - "global_tenant"
+          allowed_actions:
+            - "kibana_all_write"
+
+    # Wazuh index management role
+    manage_wazuh_index:
+      reserved: false
+      cluster_permissions:
+        - "cluster_monitor"
+        - "cluster_composite_ops"
+        - "indices:admin/template/get"
+        - "indices:admin/template/put"
+        - "cluster:admin/opendistro/ism/*"
+      index_permissions:
+        - index_patterns:
+            - "wazuh-*"
+          allowed_actions:
+            - "indices_all"
+        - index_patterns:
+            - ".opendistro-*"
+          allowed_actions:
+            - "indices_all"
+        - index_patterns:
+            - ".opensearch-observability"
+          allowed_actions:
+            - "indices_all"
+        - index_patterns:
+            - ".plugins-ml-config"
+          allowed_actions:
+            - "indices_all"
+
+    # Dashboard monitor role
+    dashboard_monitor:
+      reserved: false
+      cluster_permissions:
+        - "cluster_monitor"
+        - "cluster:monitor/nodes/info"
+        - "cluster:monitor/health"
+        - "cluster:monitor/main"
+        - "cluster:monitor/state"
+      index_permissions:
+        - index_patterns:
+            - ".kibana*"
+            - ".opensearch_dashboards*"
+          allowed_actions:
+            - "indices:admin/create"
+            - "indices:admin/get"
+            - "indices:admin/mapping/put"
+            - "indices:admin/aliases/get"
+            - "indices:data/read/*"
+            - "indices:data/write/*"
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - "indices:admin/aliases/get"
+            - "read"
+
+  roles_mapping.yml: |-
+    ---
+    _meta:
+      type: "rolesmapping"
+      config_version: 2
+    
+    all_access:
+      reserved: false
+      backend_roles:
+        - "admin"
+    
+    kibana_server:
+      reserved: false
+      users:
+        - "{{ .Values.secrets.dashboardUsername }}"
+    
+    kibana_user:
+      reserved: false
+      backend_roles:
+        - "kibanauser"
+        - "wazuh_dashboard"
+      users:
+        - "{{ .Values.secrets.dashboardUsername }}"
+    
+    readall:
+      reserved: false
+      backend_roles:
+        - "readall"
+    
+    manage_wazuh_index:
+      reserved: false
+      users:
+        - "{{ .Values.secrets.dashboardUsername }}"
+    
+    wazuh_ui_admin:
+      reserved: false
+      backend_roles:
+        - "wazuh_dashboard"
+      users:
+        - "{{ .Values.secrets.dashboardUsername }}"
+    
+    dashboard_monitor:
+      reserved: false
+      backend_roles:
+        - "wazuh_dashboard"
+      users:
+        - "{{ .Values.secrets.dashboardUsername }}"
+
+  # Action groups (required for security plugin)
+  action_groups.yml: |-
+    ---
+    _meta:
+      type: "actiongroups"
+      config_version: 2
+
+  # Tenants configuration
+  tenants.yml: |-
+    ---
+    _meta:
+      type: "tenants"
+      config_version: 2
+
+  # Config (authentication backends)
+  config.yml: |-
+    ---
+    _meta:
+      type: "config"
+      config_version: 2
+    
+    config:
+      dynamic:
+        http:
+          anonymous_auth_enabled: false
+        authc:
+          basic_internal_auth_domain:
+            description: "Authenticate via HTTP Basic against internal users database"
+            http_enabled: true
+            transport_enabled: true
+            order: 0
+            http_authenticator:
+              type: basic
+              challenge: true
+            authentication_backend:
+              type: internal
+{{- end -}}
+
+{{- include "wazuh.indexer.config" . -}}
